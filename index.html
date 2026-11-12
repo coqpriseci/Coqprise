@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F68B1E">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<title>COQPRISE</title>
+<style>
+:root{--o:#F68B1E;--od:#d9730a;--bg:#f5f5f5;--card:#fff;--tx:#222;--mu:#777;--bd:#e4e4e4;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#141414;--card:#1f1f1f;--tx:#f1f1f1;--mu:#aaa;--bd:#333;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+body{padding-bottom:76px;max-width:640px;margin:auto}
+header{background:var(--o);color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 14px 12px;position:sticky;top:0;z-index:5}
+header b{font-size:22px;letter-spacing:1px}header small{display:block;opacity:.9}
+.card{background:var(--card);border-radius:10px;padding:12px;margin:10px;box-shadow:0 1px 3px #0002}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px}
+.cat{background:var(--card);border-radius:10px;padding:14px 8px;text-align:center;font-weight:600;box-shadow:0 1px 3px #0002;cursor:pointer}
+.cat span{display:flex;font-size:44px;height:80px;align-items:center;justify-content:center;border-radius:8px;margin-bottom:6px;background:linear-gradient(135deg,#ffe2bd,#ffb866)}
+.ban{background:linear-gradient(120deg,var(--od),#ffb347);color:#fff;border-radius:10px;margin:10px;padding:18px}.ban h2{margin:0 0 4px}
+button{background:var(--o);color:#fff;border:0;border-radius:8px;padding:11px 14px;font-size:15px;font-weight:700;cursor:pointer}
+button.w{width:100%}button.s{background:var(--card);color:var(--o);border:1px solid var(--o)}button.r{background:#c0392b}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:0 10px 4px}.chip{white-space:nowrap;padding:7px 12px;border-radius:20px;background:var(--card);border:1px solid var(--bd);font-size:14px;cursor:pointer}.chip.on{background:var(--o);color:#fff;border-color:var(--o)}
+.seg{display:flex;gap:6px;margin:8px 0}.seg .chip{flex:1;text-align:center}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;font-size:15px;margin:4px 0 8px;background:var(--card);color:var(--tx)}
+label{font-size:13px;color:var(--mu)}.price{font-size:22px;font-weight:800;color:var(--o)}.mu{color:var(--mu);font-size:13px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+nav{position:fixed;bottom:0;left:0;right:0;max-width:640px;margin:auto;display:flex;background:var(--card);border-top:1px solid var(--bd);padding-bottom:env(safe-area-inset-bottom,0px);z-index:9}
+nav div{flex:1;text-align:center;padding:8px 2px;font-size:12px;color:var(--mu);cursor:pointer}nav div span{display:block;font-size:22px}nav .on{color:var(--o);font-weight:700}
+.st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;background:#ffe2bd;color:#8a4b00}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 8px}.msg{background:#fff3e0;color:#8a4b00;border-radius:8px;padding:8px;font-size:13px;margin:8px 0}
+.off{background:#c0392b;color:#fff;text-align:center;padding:6px;font-size:13px;display:none}
+</style></head><body>
+<div class="off" id="off">Hors ligne : les commandes sont impossibles sans internet.</div>
+<header><b>🐓 COQPRISE</b><small>Volailles fraîches · Bouaké & environs</small></header>
+<main id="v"></main><nav id="nav"></nav>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,collection,doc,setDoc,onSnapshot,updateDoc,query,orderBy,writeBatch,increment}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+var app=initializeApp({apiKey:"AIzaSyCTJ3oS82SCHXOU5SHVnUngttq4Y4cn47g",authDomain:"coqprise.firebaseapp.com",projectId:"coqprise",storageBucket:"coqprise.firebasestorage.app",messagingSenderId:"232123344551",appId:"1:232123344551:web:704c8b13d27be1a95d5d82"});
+var db=getFirestore(app),au=getAuth(app),OWNER="se4XEvd5XEaUmct5KPRHJw92xoG3";
+var CATS=[{id:"chair",n:"Poulets de chair",e:"🍗"},{id:"pond",n:"Poules pondeuses",e:"🥚"},{id:"bres",n:"Poulets brésiliens",e:"🐔"},{id:"arico",n:"Poulets arico",e:"🐓"},{id:"coq",n:"Coquelets blancs",e:"🐥"}];
+var FORMS={viv:"Poulet vivant",abat:"Poulet abattu"},STAT=["En attente","Acceptée","En préparation","Prête","Livrée ou récupérée","Refusée"];
+var P={},O=[],C=[],tab="home",cur="chair",F={form:"viv",mode:"kg",n:1,kg:1},user=null,flash="",loaded=false,unO=null;
+try{C=JSON.parse(localStorage.getItem("cq_c")||"[]")}catch(e){}
+function sc(){try{localStorage.setItem("cq_c",JSON.stringify(C))}catch(e){}}
+function fc(n){return Math.round(n).toLocaleString("fr-FR")+" FCFA"}
+function nm(k){var a=k.split("_"),c=CATS.filter(function(x){return x.id==a[0]})[0];return c.e+" "+c.n+" – "+FORMS[a[1]]}
+function isO(){return user&&user.uid==OWNER}
+function calc(it){var p=P[it.k];if(!p)return{u:0,g:false,t:0};if(it.mode=="kg"){var g=it.kg>=p.skg;return{u:g?p.gkg:p.kg,g:g,t:(g?p.gkg:p.kg)*it.kg}}var h=it.n>=p.spc;return{u:h?p.gpc:p.pc,g:h,t:(h?p.gpc:p.pc)*it.n}}
+function go(t){tab=t;flash="";draw()}
+function draw(){var T=[["home","🏠","Accueil"],["cli","🛍️","Client"],["cart","🛒","Panier"+(C.length?" ("+C.length+")":"")],["own","🔐","Propriétaire"]];
+document.getElementById("nav").innerHTML=T.map(function(t){return'<div class="'+(tab==t[0]?"on":"")+'" onclick="go(\''+t[0]+'\')"><span>'+t[1]+'</span>'+t[2]+'</div>'}).join("");
+var y=window.scrollY;document.getElementById("v").innerHTML=({home:vHome,cli:vCli,cart:vCart,own:vOwn})[tab]();window.scrollTo(0,tab==="x"?y:0)}
+function empty(){return'<div class="card">'+(loaded?"Le catalogue est en préparation. Revenez bientôt !":"Chargement…")+'</div>'}
+function vHome(){return'<div class="ban"><h2>Bienvenue chez COQPRISE</h2>Commandez vos volailles, livrées ou à retirer. Prix de gros automatiques.</div><div class="grid">'+CATS.map(function(c){return'<div class="cat" onclick="cur=\''+c.id+'\';go(\'cli\')"><span>'+c.e+'</span>'+c.n+'</div>'}).join("")+'</div><div class="card mu">Paiement à la livraison ou au retrait.</div>'}
+function vCli(){var k=cur+"_"+F.form,p=P[k];var h='<div class="chips" style="margin-top:10px">'+CATS.map(function(c){return'<div class="chip '+(c.id==cur?"on":"")+'" onclick="cur=\''+c.id+'\';draw()">'+c.n+'</div>'}).join("")+'</div>';
+if(!p)return h+empty();
+h+='<div class="card"><div class="seg">'+["viv","abat"].map(function(f){return'<div class="chip '+(F.form==f?"on":"")+'" onclick="F.form=\''+f+'\';draw()">'+FORMS[f]+'</div>'}).join("")+'</div><div class="seg"><div class="chip '+(F.mode=="kg"?"on":"")+'" onclick="F.mode=\'kg\';draw()">Au kilo</div><div class="chip '+(F.mode=="pc"?"on":"")+'" onclick="F.mode=\'pc\';draw()">Par poulet</div></div>';
+h+=F.mode=="kg"?'<div class="row"><b>Prix normal</b><span>'+fc(p.kg)+'/kg</span></div><div class="mu">Gros : '+fc(p.gkg)+'/kg dès '+p.skg+' kg</div>':'<div class="row"><b>Prix normal</b><span>'+fc(p.pc)+'/poulet</span></div><div class="mu">Gros : '+fc(p.gpc)+'/poulet dès '+p.spc+' poulets</div>';
+h+='<div class="mu">'+(p.stock>0?"Stock : "+p.stock+" poulets":"⚠️ Épuisé")+'</div><br><label>Nombre de poulets</label><input type="number" min="1" value="'+F.n+'" oninput="F.n=+this.value;up()">';
+if(F.mode=="kg")h+='<label>Poids total (kg)</label><input type="number" min="0.5" step="0.5" value="'+F.kg+'" oninput="F.kg=+this.value;up()">';
+h+='<div id="pl"></div><button class="w" onclick="add()">Ajouter au panier</button></div>'+(flash?'<div class="msg">'+flash+'</div>':"");setTimeout(up,0);return h}
+function up(){var e=document.getElementById("pl");if(!e)return;var c=calc({k:cur+"_"+F.form,mode:F.mode,n:F.n,kg:F.kg});e.innerHTML='<div class="row"><span>Total'+(c.g?' <span class="st">Prix de gros</span>':"")+'</span><span class="price">'+fc(c.t)+'</span></div>'}
+function add(){var k=cur+"_"+F.form;if(!(F.n>=1)||(F.mode=="kg"&&!(F.kg>0))){flash="Quantité invalide.";return draw()}if(F.n>P[k].stock){flash="Stock insuffisant ("+P[k].stock+" disponibles).";return draw()}C.push({k:k,mode:F.mode,n:F.n,kg:F.mode=="kg"?F.kg:0});sc();flash="Ajouté au panier ✔";draw()}
+function tot(){return C.reduce(function(s,i){return s+calc(i).t},0)}
+function vCart(){if(!C.length)return'<div class="card">'+(flash||"Votre panier est vide.")+'</div>';
+var h=C.map(function(i,x){var c=calc(i);return'<div class="card"><b>'+nm(i.k)+'</b><div class="mu">'+i.n+' poulet(s)'+(i.mode=="kg"?" · "+i.kg+" kg":"")+' · '+fc(c.u)+(i.mode=="kg"?"/kg":"/poulet")+(c.g?" · gros":"")+'</div><div class="row"><span class="price">'+fc(c.t)+'</span><span><button class="s" onclick="ed('+x+')">Modifier</button> <button class="r" onclick="del('+x+')">✕</button></span></div></div>'}).join("");
+return h+'<div class="card"><div class="row"><b>Total</b><span class="price">'+fc(tot())+'</span></div>'+(flash?'<div class="msg">'+flash+'</div>':"")+'<label>Nom *</label><input id="cn"><label>Téléphone *</label><input id="ct" type="tel"><label>Mode</label><select id="cm"><option>Livraison</option><option>Retrait sur place</option></select><label>Quartier</label><input id="cq"><label>Adresse de livraison</label><input id="ca"><div class="g2"><div><label>Date</label><input id="cd" type="date"></div><div><label>Heure</label><input id="ch" type="time"></div></div><label>Commentaire</label><textarea id="cc" rows="2"></textarea><button class="w" onclick="order()">Valider la commande</button><p class="mu">Paiement à la livraison ou au retrait.</p></div>'}
+function ed(x){var i=C.splice(x,1)[0];sc();cur=i.k.split("_")[0];Object.assign(F,{form:i.k.split("_")[1],mode:i.mode,n:i.n,kg:i.kg||1});go("cli")}
+function del(x){C.splice(x,1);sc();draw()}
+function v$(id){return document.getElementById(id).value.trim()}
+async function order(){var n=v$("cn"),t=v$("ct");if(!n||t.replace(/\D/g,"").length<8){flash="Nom et téléphone valides obligatoires.";return draw()}
+if(!navigator.onLine){flash="Pas de connexion : commande impossible.";return draw()}
+var need={};C.forEach(function(i){need[i.k]=(need[i.k]||0)+i.n});for(var k in need)if(!P[k]||need[k]>P[k].stock){flash="Stock insuffisant pour "+nm(k)+".";return draw()}
+var id="CQ-"+new Date().toISOString().slice(2,10).replace(/-/g,"")+"-"+Math.floor(1000+Math.random()*9000);
+var data={nom:n,tel:t,mode:v$("cm"),quartier:v$("cq"),adr:v$("ca"),date:v$("cd"),heure:v$("ch"),com:v$("cc"),st:0,total:tot(),at:Date.now(),items:C.map(function(i){var c=calc(i);return{k:i.k,mode:i.mode,n:i.n,kg:i.kg,u:c.u,t:c.t}})};
+try{await Promise.race([setDoc(doc(db,"orders",id),data),new Promise(function(_,j){setTimeout(function(){j(new Error("t"))},12000)})]);C=[];sc();flash="✔ Commande "+id+" enregistrée. Gardez ce numéro. Nous vous contacterons.";}catch(e){flash="Commande NON confirmée (erreur ou connexion lente). Réessayez."}draw()}
+function vOwn(){if(!user)return'<div class="card"><h3>Espace propriétaire</h3><label>E-mail</label><input id="em" type="email" autocomplete="username"><label>Mot de passe</label><input id="pw" type="password" autocomplete="current-password">'+(flash?'<div class="msg">'+flash+'</div>':"")+'<button class="w" onclick="login()">Entrer</button></div>';
+if(!isO())return'<div class="card">Accès refusé : ce compte n’est pas le propriétaire.<br><br><button onclick="signOut_()">Se déconnecter</button></div>';
+var d=O.filter(function(o){return o.st==4}),ca=d.reduce(function(s,o){return s+o.total},0),ven={};O.forEach(function(o){if(o.st!=5)o.items.forEach(function(i){ven[i.k]=(ven[i.k]||0)+i.n})});
+var top=Object.keys(ven).sort(function(a,b){return ven[b]-ven[a]}).slice(0,3).map(function(k){return nm(k)+" ("+ven[k]+")"}).join("<br>")||"–";
+var h='<div class="card"><div class="row"><b>Tableau de bord</b><button class="s" onclick="signOut_()">Sortir</button></div><p>Commandes : <b>'+O.length+'</b> · En attente : <b>'+O.filter(function(o){return o.st==0}).length+'</b> · Terminées : <b>'+d.length+'</b><br>Chiffre d’affaires : <b>'+fc(ca)+'</b></p><div class="mu">Plus vendus :<br>'+top+'</div></div><h3 style="margin:10px">Commandes</h3>';
+h+=O.length?O.map(function(o){var re=o.items.reduce(function(s,i){return s+calc(i).t},0);return'<div class="card"><div class="row"><b>'+o.id+'</b><span class="st">'+STAT[o.st]+'</span></div><div class="mu">'+esc(o.nom)+' · '+esc(o.tel)+' · '+o.mode+(o.quartier?" · "+esc(o.quartier):"")+(o.adr?" · "+esc(o.adr):"")+(o.date?" · "+o.date+" "+o.heure:"")+(o.com?"<br>“"+esc(o.com)+"”":"")+'</div>'+o.items.map(function(i){return'<div>'+nm(i.k)+' ×'+i.n+(i.mode=="kg"?" ("+i.kg+" kg)":"")+' = '+fc(i.t)+'</div>'}).join("")+(o.st==0&&Math.abs(re-o.total)>1?'<div class="msg">⚠️ Total reçu '+fc(o.total)+' ≠ recalcul aux prix actuels '+fc(re)+'</div>':"")+'<div class="row"><b>'+fc(o.total)+'</b><select style="width:auto" onchange="setSt(\''+o.id+'\',+this.value)">'+STAT.map(function(s,j){return'<option value="'+j+'"'+(j==o.st?" selected":"")+'>'+s+'</option>'}).join("")+'</select></div></div>'}).join(""):'<div class="card mu">Aucune commande.</div>';
+h+='<h3 style="margin:10px">Prix, gros et stock</h3>';
+if(!Object.keys(P).length)return h+'<div class="card"><button class="w" onclick="seed()">Créer le catalogue de départ (10 produits)</button></div>';
+return h+Object.keys(P).sort().map(function(k){var p=P[k];function f(l,key){return'<div><label>'+l+'</label><input type="number" min="0" value="'+p[key]+'" onchange="setP(\''+k+'\',\''+key+'\',this.value)"></div>'}return'<div class="card"><b>'+nm(k)+'</b><div class="g2">'+f("Prix/kg","kg")+f("Prix/poulet","pc")+f("Gros/kg","gkg")+f("Dès (kg)","skg")+f("Gros/poulet","gpc")+f("Dès (poulets)","spc")+f("Stock","stock")+'</div></div>'}).join("")}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+async function login(){try{await signInWithEmailAndPassword(au,v$("em"),document.getElementById("pw").value);flash=""}catch(e){flash="E-mail ou mot de passe incorrect.";draw()}}
+function signOut_(){signOut(au)}
+async function seed(){var b=writeBatch(db);CATS.forEach(function(c,i){["viv","abat"].forEach(function(f){var x=2500+i*500+(f=="abat"?400:0);b.set(doc(db,"products",c.id+"_"+f),{cat:c.id,form:f,kg:x,pc:x*2,gkg:x-300,skg:20,gpc:x*2-500,spc:10,stock:0})})});try{await b.commit()}catch(e){alert("Erreur : "+e.message)}}
+async function setP(k,key,v){try{await updateDoc(doc(db,"products",k),{[key]:Math.max(0,+v||0)})}catch(e){alert("Erreur : "+e.message)}}
+async function setSt(id,s){var o=O.filter(function(x){return x.id==id})[0];if(!o)return;var b=writeBatch(db);
+if(o.st==0&&s>0&&s<5){var bad=o.items.filter(function(i){return !P[i.k]||P[i.k].stock<i.n})[0];if(bad){alert("Stock insuffisant pour "+nm(bad.k));return draw()}o.items.forEach(function(i){b.update(doc(db,"products",i.k),{stock:increment(-i.n)})})}
+else if(o.st>0&&o.st<5&&s==5)o.items.forEach(function(i){b.update(doc(db,"products",i.k),{stock:increment(i.n)})});
+b.update(doc(db,"orders",id),{st:s});try{await b.commit()}catch(e){alert("Erreur : "+e.message)}}
+onSnapshot(collection(db,"products"),function(s){P={};s.forEach(function(d){P[d.id]=d.data()});loaded=true;if(document.activeElement.tagName!="INPUT"&&document.activeElement.tagName!="SELECT")draw()},function(){loaded=true;draw()});
+onAuthStateChanged(au,function(u){user=u;if(unO){unO();unO=null}O=[];if(isO())unO=onSnapshot(query(collection(db,"orders"),orderBy("at","desc")),function(s){O=[];s.forEach(function(d){var x=d.data();x.id=d.id;O.push(x)});if(tab=="own"&&document.activeElement.tagName!="INPUT"&&document.activeElement.tagName!="SELECT")draw()});draw()});
+function net(){document.getElementById("off").style.display=navigator.onLine?"none":"block"}
+addEventListener("online",net);addEventListener("offline",net);net();
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(function(){});
+Object.assign(window,{go:go,draw:draw,up:up,add:add,ed:ed,order:order,login:login,signOut_:signOut_,seed:seed,setP:setP,setSt:setSt,F:F,del:del});
+Object.defineProperty(window,"cur",{get:function(){return cur},set:function(v){cur=v}});
+draw();
+</script></body></html>
